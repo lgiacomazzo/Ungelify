@@ -21,6 +21,8 @@ namespace Ungelify
                 ["cd"] = SetCurrentDirectory,
                 ["open"] = Open,
                 ["list-contents"] = ListContents,
+                ["add"] = Add,
+                ["remove"] = Remove,
                 ["ls"] = ListContents,
                 ["extract"] = Extract,
                 ["replace"] = Replace,
@@ -122,6 +124,22 @@ namespace Ungelify
             _currentOutputDir = Path.GetFileNameWithoutExtension(path);
         }
 
+        private void Remove(string[] args)
+        {
+            EnsureEnoughArguments(args, 1);
+            EnsureInputSpecified();
+
+            string arg = args[0];
+            IFileEntry entry = GetEntry(arg);
+            if (entry == null)
+            {
+                return;
+            }
+            _currentArchive.RemoveEntry(entry);
+            _currentArchive.SaveChanges();
+            Console.WriteLine("Please close and reopen the archive in order to see any changes.");
+        }
+
         private void Extract(string[] args)
         {
             EnsureEnoughArguments(args, 1);
@@ -144,6 +162,7 @@ namespace Ungelify
             }
         }
 
+      
         private IFileEntry GetEntry(string nameOrId)
         {
             int id;
@@ -164,21 +183,46 @@ namespace Ungelify
             }
         }
 
+        private void Add(string[] args)
+        {
+            EnsureInputSpecified();
+            EnsureEnoughArguments(args, 1);
+
+            string pathFileToAdd = args[0];
+            using (var newFile = File.OpenRead(pathFileToAdd))
+            {
+                string filename = Path.GetFileName(pathFileToAdd);
+                try { 
+                    var archiveEntry = GetEntry(filename);
+                    Console.WriteLine($"File {filename} already exists in opened archive.");
+                    return;
+                }
+                catch (Exception)
+                {
+                    // fileToAdd does not exist. A new entry must be created
+                    _currentArchive.AddEntry(newFile, filename);
+                }
+            }
+            _currentArchive.SaveChanges();
+            Console.WriteLine("Please close and reopen the archive in order to see any changes.");
+        }
+
         private void Replace(string[] args)
         {
             EnsureInputSpecified();
             EnsureEnoughArguments(args, 1);
 
             string fileToReplace = args[0];
-            var newerFile = File.OpenRead(fileToReplace);
-            var archiveEntry = GetEntry(fileToReplace);
-            using (var entryStream = archiveEntry.Open())
+            using (var newerFile = File.OpenRead(fileToReplace))
             {
-                entryStream.SetLength(0);
-                newerFile.CopyTo(entryStream);
-            }
+                var archiveEntry = GetEntry(fileToReplace);
 
-            newerFile.Dispose();
+                using (var entryStream = archiveEntry.Open())
+                {
+                    entryStream.SetLength(0);
+                    newerFile.CopyTo(entryStream);
+                }
+            }
             _currentArchive.SaveChanges();
         }
 
@@ -257,9 +301,11 @@ namespace Ungelify
 
         private void DisplayHelp()
         {
-            Console.WriteLine("cd <path>");
             Console.WriteLine("Commands:");
+            Console.WriteLine("cd <path>");
             Console.WriteLine("open <filename>");
+            Console.WriteLine("add <filename> (use only on not empty mpk)");
+            Console.WriteLine("remove <filename> (use only on not empty mpk)");
             Console.WriteLine("ls OR list-contents");
             Console.WriteLine("extract all OR extract <filename> OR extract <id> (use 'open' first)");
             Console.WriteLine("replace <filename>");

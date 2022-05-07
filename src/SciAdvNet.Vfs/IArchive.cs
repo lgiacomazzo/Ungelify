@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Immutable;
+using System.IO;
 
 namespace SciAdvNet.Vfs
 {
@@ -7,10 +8,11 @@ namespace SciAdvNet.Vfs
     {
         ImmutableArray<IFileEntry> Entries { get; }
         ArchiveMode ArchiveMode { get; }
-        bool IsCompressed { get; }
 
         IFileEntry GetEntry(int id);
         IFileEntry GetEntry(string name);
+        void AddEntry(FileStream reader, string name);
+        void RemoveEntry(IFileEntry entryToRemove);
 
         void SaveChanges();
     }
